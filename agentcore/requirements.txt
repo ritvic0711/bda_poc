@@ -1,0 +1,6 @@
+boto3>=1.40.0
+botocore>=1.40.0
+PyYAML>=6.0
+# Optional: AWS high-level memory SDK (this POC uses raw boto3, but the SDK
+# wraps the same data-plane calls if you prefer client.create_event / etc.)
+# bedrock-agentcore

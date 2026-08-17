@@ -1,0 +1,107 @@
+# =============================================================================
+# business_rules.yaml  —  THE single "separate place" you edit
+# -----------------------------------------------------------------------------
+# On startup the bootstrap reads this file and applies it to BOTH memory tiers:
+#
+#   SHORT-TERM MEMORY (STM)  -> raw verbatim turns. AgentCore runs NO LLM over
+#                               STM, so there is no "extraction prompt" to
+#                               customize. Your business rules affect STM via:
+#                                 (a) stm.system_preamble  -> injected into the
+#                                     agent's system prompt every turn
+#                                 (b) stm.rehydrate_turns   -> how many past
+#                                     turns get replayed into context
+#                                 (c) stm.retention_days    -> how long raw
+#                                     events live (eventExpiryDuration)
+#
+#   LONG-TERM MEMORY (LTM)   -> extracted/consolidated records. THIS is where
+#                               prompt customization is real: each strategy's
+#                               `extraction.append_to_prompt` and
+#                               `consolidation.append_to_prompt` override the
+#                               built-in instructions (schema stays the same).
+#
+# Change this file and re-run with `--sync` to push LTM prompt changes on demand
+# (via UpdateMemory) — no need to recreate the memory resource. STM preamble
+# changes apply on the very next turn.
+# =============================================================================
+
+memory:
+  name: "poc_memory_prompt_customization"
+  region: "us-west-2"
+  # STM raw-event retention. Longer = more turns available for rehydrate.
+  retention_days: 30
+  # Model used for LTM extraction/consolidation when a strategy is OVERRIDDEN.
+  # Override strategies bill inference to YOUR account, so pick a cheap-but-good
+  # model. Haiku via cross-region inference profile is a good default.
+  ltm_model_id: "us.anthropic.claude-3-5-haiku-20241022-v1:0"
+  # Required ONLY when at least one strategy is overridden (custom). Leave as env.
+  # Set MEMORY_EXECUTION_ROLE_ARN in the environment instead of hardcoding.
+  execution_role_arn_env: "MEMORY_EXECUTION_ROLE_ARN"
+
+# ---------------------------------------------------------------------------
+# SHORT-TERM MEMORY controls
+# ---------------------------------------------------------------------------
+stm:
+  rehydrate_turns: 6          # last-k turns replayed into context each request
+  # Business rules the agent must ALWAYS honor. Injected verbatim as a system
+  # preamble at startup and on every turn. This is your STM "prompt".
+  system_preamble: |
+    You are a support assistant. Operating rules:
+    - Never reveal internal pricing tiers or discount authority above 15%.
+    - Always confirm the customer's plan before discussing entitlements.
+    - Escalate any billing dispute over $500 to a human agent.
+    - Do not store or repeat full card numbers, government IDs, or passwords.
+
+# ---------------------------------------------------------------------------
+# LONG-TERM MEMORY strategies
+# ---------------------------------------------------------------------------
+# For each strategy:
+#   enabled: true|false
+#   namespace: hierarchy with {actorId}/{sessionId}/{memoryStrategyId} placeholders
+#   extraction.append_to_prompt   -> if present, OVERRIDES built-in extraction
+#   consolidation.append_to_prompt-> if present, OVERRIDES built-in consolidation
+# Omit the append_to_prompt keys to use the plain built-in (managed, no LLM cost
+# to your account). Add them to switch that strategy into "built-in with
+# overrides" mode and inject business rules.
+# ---------------------------------------------------------------------------
+ltm:
+
+  semantic:
+    enabled: true
+    namespace: "/facts/{actorId}"
+    # --- OVERRIDDEN: constrain what facts we keep + drop PII/noise ---
+    extraction:
+      append_to_prompt: |
+        Extract ONLY durable, business-relevant facts about the customer:
+        account plan, product entitlements, integrations in use, and open
+        support issues. Ignore small talk, transient states, and opinions.
+        Never extract card numbers, government IDs, passwords, or PII beyond a
+        first name.
+    consolidation:
+      append_to_prompt: |
+        When a new fact conflicts with a stored fact about the same account
+        attribute (e.g. plan tier), REPLACE the old fact. Otherwise merge.
+        Drop anything that is no longer an active issue.
+
+  user_preference:
+    enabled: true
+    namespace: "/preferences/{actorId}"
+    # --- OVERRIDDEN: only communication + product preferences ---
+    extraction:
+      append_to_prompt: |
+        Extract only the customer's communication preferences (channel, tone,
+        language) and product configuration preferences. Ignore one-off choices.
+    consolidation:
+      append_to_prompt: |
+        Prefer the most recently stated preference. Keep at most one value per
+        preference dimension.
+
+  summary:
+    enabled: true
+    namespace: "/summaries/{actorId}/{sessionId}"
+    # --- OVERRIDDEN: summary shape tuned for handoff to a human agent ---
+    # NOTE: summary strategy only has a CONSOLIDATION step (no extraction).
+    consolidation:
+      append_to_prompt: |
+        Summarize the session as a handoff note for a human agent: customer
+        intent, what was tried, current status, and the single next action.
+        Keep under 120 words. No PII beyond first name.
