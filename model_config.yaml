@@ -1,0 +1,82 @@
+# =============================================================================
+# Model Configuration
+# =============================================================================
+# Use exact LangChain init_chat_model param names. Every field except
+# framework metadata (name, provider, model_type, cost, auth_method)
+# passes straight through. No renames. No Python changes for new params.
+# =============================================================================
+
+test_settings:
+  structured_instruction: |
+    Do not wrap inside custom syntax blocks outside valid JSON notation arrays.
+
+models:
+
+  # --- AWS Bedrock Runtime ---
+  - name: "AWS_Bedrock_Claude_Haiku"
+    provider: "aws"
+    model_type: "bedrock_runtime"
+    model_provider: "bedrock_converse"
+    model: "global.anthropic.claude-haiku-4-5-20251001-v1:0"
+    region_name: "us-east-1"
+    streaming: true
+    temperature: 0
+    cost:
+      input_per_1m: 1.00
+      output_per_1m: 5.00
+
+  # --- AWS Bedrock Mantle (OpenAI-compatible, IAM token) ---
+  # - name: "AWS_Bedrock_GPT56_Luna"
+  #   provider: "aws"
+  #   model_type: "bedrock_mantle"
+  #   model_provider: "openai"
+  #   model: "openai.gpt-5.6-luna"
+  #   auth_method: "bedrock_mantle_iam"
+  #   region_name: "us-east-1"
+  #   streaming: true
+  #   temperature: 0
+  #   max_tokens: 4096
+  #   cost:
+  #     input_per_1m: 0.15
+  #     output_per_1m: 0.60
+
+  # --- Azure OpenAI (via APIM gateway) ---
+  - name: "Azure_GPT56_Luna"
+    provider: "azure"
+    model_type: "azure_openai"
+    model_provider: "openai"
+    model: "gpt-5.6-luna"
+    base_url: "${APIM_HOST_URL}"
+    api_key: "${AZURE_OPENAI_API_KEY}"
+    model_version: "2026-07-09"
+    streaming: true
+    temperature: 0
+    default_headers:
+      Content-Type: "application/json"
+      Openai-model: "gpt-5.6-luna"
+      Openai-model-version: "2026-07-09"
+      Ocp-Apim-Subscription-Key: "${AZURE_SUBSCRIPTION_KEY}"
+    use_responses_api: true
+    store: false
+    cost:
+      input_per_1m: 0.15
+      output_per_1m: 0.60
+
+  # --- GCP Google GenAI ---
+  - name: "GCP_Gemini_Pro"
+    provider: "gcp"
+    model_type: "google_genai"
+    model_provider: "google_genai"
+    model: "gemini-2.5-pro"
+    api_key: "${GOOGLE_API_KEY}"
+    streaming: true
+    temperature: 0
+    # top_p: 0.95
+    # top_k: 40
+    # max_tokens: 8192
+    # seed: 42
+    # thinking_level: "medium"
+    # thinking_budget: 1024
+    cost:
+      input_per_1m: 0.30
+      output_per_1m: 1.20
