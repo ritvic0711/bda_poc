@@ -1,0 +1,311 @@
+# =============================================================================
+# configs/azure.yaml  — all Azure environments in one file
+# =============================================================================
+# Layering that keeps it DRY across many models AND across environments:
+#   _base / _stream_temp   shared scaffolding (provider, type, sampling)
+#   _base_apim / _base_legacy   auth/header FLAVOUR — NO url, NO key
+#   _catalog               each model defined ONCE — model id + cost, NO endpoint
+#   _endpoints             per-env url + key, defined ONCE each (qa vs dev differ here)
+#   environments           wiring: <<: [*model, *endpoint] + name
+#
+# MERGE RULE (important): in `<<: [*a, *b]` the FIRST anchor wins on key clash,
+# and keys written directly in the mapping beat both. Catalog anchors carry NO
+# base_url/api_key, so the endpoint anchor supplies them cleanly. If you ever
+# put base_url back in a catalog anchor, the endpoint won't override it and dev
+# will silently hit the qa host — don't.
+# =============================================================================
+
+vendor: azure
+
+# ---- shared scaffolding ----
+_base: &base
+  provider: "azure"
+  model_type: "azure_openai"
+  model_provider: "openai"
+
+_stream_temp: &stream_temp
+  streaming: true
+  temperature: 0
+
+# ---- auth flavours (NO url / NO key here) ----
+_base_legacy: &base_legacy
+  <<: *base
+  default_query:
+    api-version: "20252006"
+  default_headers:
+    Ocp-Apim-Subscription-Key: "${AZURE_SUBSCRIPTION_KEY}"
+    Content-Type: "application/json"
+
+_base_apim: &base_apim
+  <<: *base
+  use_responses_api: true
+  store: false
+
+_apim_headers: &apim_headers
+  Content-Type: "application/json"
+  Ocp-Apim-Subscription-Key: "${AZURE_SUBSCRIPTION_KEY}"
+
+# =============================================================================
+# _endpoints — the ONLY place qa and dev differ. Fill in your real env-var names.
+# Two flavours per env because legacy and APIM sit behind different hosts/keys.
+# =============================================================================
+_endpoints:
+  qa_legacy:  &ep_qa_legacy  { base_url: "${AZURE_QA_LEGACY_URL}",   api_key: "${AZURE_QA_OPENAI_API_KEY}" }
+  qa_apim:    &ep_qa_apim    { base_url: "${AZURE_QA_APIM_HOST_URL}", api_key: "${AZURE_QA_API_KEY}" }
+  dev_legacy: &ep_dev_legacy { base_url: "${AZURE_DEV_LEGACY_URL}",   api_key: "${AZURE_DEV_OPENAI_API_KEY}" }
+  dev_apim:   &ep_dev_apim   { base_url: "${AZURE_DEV_APIM_HOST_URL}", api_key: "${AZURE_DEV_API_KEY}" }
+
+# =============================================================================
+# _catalog — every model defined ONCE. Endpoint-free.
+# NOTE: `model:` values below are PLACEHOLDERS reconstructed from screenshots —
+# replace each with your real deployment/model string before running.
+# Legacy embedding models need a per-model path suffix on base_url; that suffix
+# is applied in the wiring lines (see qa/dev), not here.
+# =============================================================================
+_catalog:
+
+  # ---- Legacy deployment models ----
+  azure_textembeddingada002: &azure_textembeddingada002
+    <<: *base_legacy
+    <<: *stream_temp
+    model: "text-embedding-ada-002"
+    cost: { input_per_1m: 0.15, output_per_1m: 0.6 }
+
+  azure_textembedding3small: &azure_textembedding3small
+    <<: *base_legacy
+    <<: *stream_temp
+    model: "text-embedding-3-small"
+    cost: { input_per_1m: 0.15, output_per_1m: 0.6 }
+
+  azure_o3minigs: &azure_o3minigs
+    <<: *base_legacy
+    <<: *stream_temp
+    model: "o3-mini"                      # TODO confirm real deployment id
+    cost: { input_per_1m: 0.15, output_per_1m: 0.6 }
+
+  azure_o3: &azure_o3
+    <<: *base_legacy
+    <<: *stream_temp
+    model: "o3"                           # TODO
+    cost: { input_per_1m: 2.00, output_per_1m: 8.00 }
+
+  azure_o4mini: &azure_o4mini
+    <<: *base_legacy
+    <<: *stream_temp
+    model: "o4-mini"                      # TODO
+    cost: { input_per_1m: 0.15, output_per_1m: 0.60 }
+
+  azure_gpt41: &azure_gpt41
+    <<: *base_legacy
+    <<: *stream_temp
+    model: "gpt-4.1"                      # TODO
+    cost: { input_per_1m: 2.00, output_per_1m: 8.00 }
+
+  azure_gpt41minizptu: &azure_gpt41minizptu
+    <<: *base_legacy
+    <<: *stream_temp
+    model: "gpt-4.1-mini"                 # TODO (zptu = provisioned deployment?)
+    cost: { input_per_1m: 0.15, output_per_1m: 0.60 }
+
+  azure_gpt5zstd: &azure_gpt5zstd
+    <<: *base_legacy
+    <<: *stream_temp
+    model: "gpt-5"                        # TODO
+    cost: { input_per_1m: 0.00, output_per_1m: 0.00 }
+
+  azure_gpt5gs: &azure_gpt5gs
+    <<: *base_legacy
+    <<: *stream_temp
+    model: "gpt-5"                        # TODO
+    cost: { input_per_1m: 0.00, output_per_1m: 0.00 }
+
+  azure_gpt5nanozstd: &azure_gpt5nanozstd
+    <<: *base_legacy
+    <<: *stream_temp
+    model: "gpt-5-nano"                   # TODO
+    cost: { input_per_1m: 0.00, output_per_1m: 0.00 }
+
+  azure_gpt5nanogs: &azure_gpt5nanogs
+    <<: *base_legacy
+    <<: *stream_temp
+    model: "gpt-5-nano"                   # TODO
+    cost: { input_per_1m: 0.00, output_per_1m: 0.00 }
+
+  azure_gpt4omini20240718zstd: &azure_gpt4omini20240718zstd
+    <<: *base_legacy
+    <<: *stream_temp
+    model: "gpt-4o-mini-2024-07-18"       # TODO
+    cost: { input_per_1m: 0.15, output_per_1m: 0.60 }
+
+  azure_gpt41zstd: &azure_gpt41zstd
+    <<: *base_legacy
+    <<: *stream_temp
+    model: "gpt-4.1"                      # TODO
+    cost: { input_per_1m: 2.00, output_per_1m: 8.00 }
+
+  # ---- APIM deployment models ----
+  azure_textembedding3large: &azure_textembedding3large
+    <<: *base_apim
+    <<: *stream_temp
+    model: "text-embedding-3-large"
+    default_headers: *apim_headers
+    cost: { input_per_1m: 0.13, output_per_1m: 0.00 }
+
+  azure_gpt5minizstd: &azure_gpt5minizstd
+    <<: *base_apim
+    <<: *stream_temp
+    model: "gpt-5-mini"                   # TODO
+    default_headers: *apim_headers
+    cost: { input_per_1m: 0.00, output_per_1m: 0.00 }
+
+  azure_gpt5minigs: &azure_gpt5minigs
+    <<: *base_apim
+    <<: *stream_temp
+    model: "gpt-5-mini"                   # TODO
+    default_headers: *apim_headers
+    cost: { input_per_1m: 0.00, output_per_1m: 0.00 }
+
+  azure_gpt5minizptu: &azure_gpt5minizptu
+    <<: *base_apim
+    <<: *stream_temp
+    model: "gpt-5-mini"                   # TODO
+    default_headers: *apim_headers
+    cost: { input_per_1m: 0.00, output_per_1m: 0.00 }
+
+  azure_gpt51: &azure_gpt51
+    <<: *base_apim
+    <<: *stream_temp
+    model: "gpt-5.1"                      # TODO
+    default_headers: *apim_headers
+    cost: { input_per_1m: 0.00, output_per_1m: 0.00 }
+
+  azure_gpt52: &azure_gpt52
+    <<: *base_apim
+    <<: *stream_temp
+    model: "gpt-5.2"                      # TODO
+    default_headers: *apim_headers
+    cost: { input_per_1m: 0.00, output_per_1m: 0.00 }
+
+  azure_gpt54: &azure_gpt54
+    <<: *base_apim
+    <<: *stream_temp
+    model: "gpt-5.4"                      # TODO
+    default_headers: *apim_headers
+    cost: { input_per_1m: 0.00, output_per_1m: 0.00 }
+
+  azure_gpt54minigs: &azure_gpt54minigs
+    <<: *base_apim
+    <<: *stream_temp
+    model: "gpt-5.4"                      # TODO
+    default_headers: *apim_headers
+    cost: { input_per_1m: 0.00, output_per_1m: 0.00 }
+
+  azure_gpt54minizstd: &azure_gpt54minizstd
+    <<: *base_apim
+    <<: *stream_temp
+    model: "gpt-5.4-mini"                 # TODO
+    default_headers: *apim_headers
+    cost: { input_per_1m: 0.00, output_per_1m: 0.00 }
+
+  azure_gpt54nano: &azure_gpt54nano
+    <<: *base_apim
+    <<: *stream_temp
+    model: "gpt-5.4-nano"                 # TODO
+    default_headers: *apim_headers
+    cost: { input_per_1m: 0.00, output_per_1m: 0.00 }
+
+  azure_gpt53codex: &azure_gpt53codex
+    <<: *base_apim
+    <<: *stream_temp
+    model: "gpt-5.3-codex"               # TODO
+    default_headers: *apim_headers
+    cost: { input_per_1m: 0.00, output_per_1m: 0.00 }
+
+  azure_gpt55zstd: &azure_gpt55zstd
+    <<: *base_apim
+    <<: *stream_temp
+    model: "gpt-5.5"                      # TODO
+    default_headers: *apim_headers
+    cost: { input_per_1m: 0.00, output_per_1m: 0.00 }
+
+  azure_gpt55gs: &azure_gpt55gs
+    <<: *base_apim
+    <<: *stream_temp
+    model: "gpt-5.5"                      # TODO
+    default_headers: *apim_headers
+    cost: { input_per_1m: 0.00, output_per_1m: 0.00 }
+
+  azure_gpt56lunazstd: &azure_gpt56lunazstd
+    <<: *base_apim
+    <<: *stream_temp
+    model: "gpt-5.6-luna"               # TODO
+    default_headers: *apim_headers
+    cost: { input_per_1m: 0.15, output_per_1m: 0.60 }
+
+  azure_gpt56solzstd: &azure_gpt56solzstd
+    <<: *base_apim
+    <<: *stream_temp
+    model: "gpt-5.6-sol"               # TODO
+    default_headers: *apim_headers
+    cost: { input_per_1m: 0.00, output_per_1m: 0.00 }
+
+  azure_gpt56terrazstd: &azure_gpt56terrazstd
+    <<: *base_apim
+    <<: *stream_temp
+    model: "gpt-5.6-terra"             # TODO
+    default_headers: *apim_headers
+    cost: { input_per_1m: 0.00, output_per_1m: 0.00 }
+
+# =============================================================================
+# environments — wiring only. Each line: <<: [*model, *endpoint], name (+ suffix
+# for legacy embeddings). qa and dev differ ONLY in the *ep_* token.
+# =============================================================================
+environments:
+
+  qa:
+    models:
+      # Legacy (embeddings carry a per-model path suffix on the qa legacy host)
+      - { <<: [*azure_textembeddingada002, *ep_qa_legacy], base_url: "${AZURE_QA_LEGACY_URL}/text-embedding-ada-002", name: "Azure_TextEmbeddingAda002" }
+      - { <<: [*azure_textembedding3small, *ep_qa_legacy], base_url: "${AZURE_QA_LEGACY_URL}/text-embedding-3-small", name: "Azure_TextEmbedding3Small" }
+      - { <<: [*azure_o3minigs,            *ep_qa_legacy], name: "Azure_O3MiniGs" }
+      - { <<: [*azure_o3,                  *ep_qa_legacy], name: "Azure_O3" }
+      - { <<: [*azure_o4mini,              *ep_qa_legacy], name: "Azure_O4Mini" }
+      - { <<: [*azure_gpt41,               *ep_qa_legacy], name: "Azure_Gpt41" }
+      - { <<: [*azure_gpt41minizptu,       *ep_qa_legacy], name: "Azure_Gpt41MiniZptu" }
+      - { <<: [*azure_gpt5zstd,            *ep_qa_legacy], name: "Azure_Gpt5Zstd" }
+      - { <<: [*azure_gpt5gs,              *ep_qa_legacy], name: "Azure_Gpt5Gs" }
+      - { <<: [*azure_gpt5nanozstd,        *ep_qa_legacy], name: "Azure_Gpt5NanoZstd" }
+      - { <<: [*azure_gpt5nanogs,          *ep_qa_legacy], name: "Azure_Gpt5NanoGs" }
+      - { <<: [*azure_gpt4omini20240718zstd, *ep_qa_legacy], name: "Azure_Gpt4oMini20240718Zstd" }
+      - { <<: [*azure_gpt41zstd,           *ep_qa_legacy], name: "Azure_Gpt41Zstd" }
+      # APIM
+      - { <<: [*azure_textembedding3large, *ep_qa_apim], name: "Azure_TextEmbedding3Large" }
+      - { <<: [*azure_gpt5minizstd,        *ep_qa_apim], name: "Azure_Gpt5MiniZstd" }
+      - { <<: [*azure_gpt5minigs,          *ep_qa_apim], name: "Azure_Gpt5MiniGs" }
+      - { <<: [*azure_gpt5minizptu,        *ep_qa_apim], name: "Azure_Gpt5MiniZptu" }
+      - { <<: [*azure_gpt51,               *ep_qa_apim], name: "Azure_Gpt51" }
+      - { <<: [*azure_gpt52,               *ep_qa_apim], name: "Azure_Gpt52" }
+      - { <<: [*azure_gpt54,               *ep_qa_apim], name: "Azure_Gpt54" }
+      - { <<: [*azure_gpt54minigs,         *ep_qa_apim], name: "Azure_Gpt54MiniGs" }
+      - { <<: [*azure_gpt54minizstd,       *ep_qa_apim], name: "Azure_Gpt54MiniZstd" }
+      - { <<: [*azure_gpt54nano,           *ep_qa_apim], name: "Azure_Gpt54Nano" }
+      - { <<: [*azure_gpt53codex,          *ep_qa_apim], name: "Azure_Gpt53Codex" }
+      - { <<: [*azure_gpt55zstd,           *ep_qa_apim], name: "Azure_Gpt55Zstd" }
+      - { <<: [*azure_gpt55gs,             *ep_qa_apim], name: "Azure_Gpt55Gs" }
+      - { <<: [*azure_gpt56lunazstd,       *ep_qa_apim], name: "Azure_Gpt56LunaZstd" }
+      - { <<: [*azure_gpt56solzstd,        *ep_qa_apim], name: "Azure_Gpt56SolZstd" }
+      - { <<: [*azure_gpt56terrazstd,      *ep_qa_apim], name: "Azure_Gpt56TerraZstd" }
+
+  dev:
+    models:
+      # Legacy
+      - { <<: [*azure_textembeddingada002, *ep_dev_legacy], base_url: "${AZURE_DEV_LEGACY_URL}/text-embedding-ada-002", name: "Azure_TextEmbeddingAda002" }
+      - { <<: [*azure_textembedding3small, *ep_dev_legacy], base_url: "${AZURE_DEV_LEGACY_URL}/text-embedding-3-small", name: "Azure_TextEmbedding3Small" }
+      - { <<: [*azure_o3minigs,            *ep_dev_legacy], name: "Azure_O3MiniGs" }
+      - { <<: [*azure_o3,                  *ep_dev_legacy], name: "Azure_O3" }
+      - { <<: [*azure_o4mini,              *ep_dev_legacy], name: "Azure_O4Mini" }
+      - { <<: [*azure_gpt41,               *ep_dev_legacy], name: "Azure_Gpt41" }
+      - { <<: [*azure_gpt41minizptu,       *ep_dev_legacy], name: "Azure_Gpt41MiniZptu" }
+      # APIM (add the rest here as you enable them in dev)
+      - { <<: [*azure_gpt54,               *ep_dev_apim], name: "Azure_Gpt54" }
+      - { <<: [*azure_gpt56lunazstd,       *ep_dev_apim], name: "Azure_Gpt56LunaZstd" }
