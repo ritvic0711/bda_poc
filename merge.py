@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-Merge aggregated_report_*.csv files into one file, one row per model,
-with per-environment columns (dev / qa / prod / ...).
+Merge aggregated_report_*.csv files into one file: one row per model.
+If a model exists in multiple environments, only the highest-priority env is kept
+(default: prod > qa > dev).
 
 Usage:
-    python merge_reports.py --input-dir ./reports --output merged_report.xlsx
-    python merge_reports.py -i ./reports -o merged.csv --pattern "aggregated_report_*.csv"
+    python merge_reports.py -i ./reports -o merged_report.xlsx
+    python merge_reports.py -i ./reports -o merged.csv -p "aggregated_report_*.csv"
 """
 import argparse
 import ast
@@ -15,17 +16,16 @@ import os
 import pandas as pd
 
 # ---- config ---------------------------------------------------------------
-KEY_COLS = ["model_name", "model_id"]          # identity of a model
-STATIC_COLS = ["model_provider"]               # same across envs, kept once
+KEY_COLS = ["model_name", "model_id"]
+ENV_PRIORITY = ["prod", "qa", "dev"]          # first = most preferred
 STATUS_COLS = ["invoke", "stream", "tool_calling", "reasoning",
                "agent_loop", "multiturn_tools"]
-ENV_ORDER = ["dev", "qa", "prod"]              # others get appended alphabetically
-TREAT_ZERO_AS_MISSING = ["avg_ttft_sec"]       # 0 here = not measured, not "instant"
+TREAT_ZERO_AS_MISSING = ["avg_ttft_sec"]      # 0 = not measured
 # ---------------------------------------------------------------------------
 
 
 def parse_status(val):
-    """Handles 'PASS', "('PASS', '')", "('FAIL', 'Agent loop ...')" -> (status, reason)."""
+    """'PASS', "('PASS', '')", "('FAIL', 'reason')" -> (status, reason)."""
     if pd.isna(val):
         return None, ""
     s = str(val).strip()
@@ -59,7 +59,6 @@ def clean(df):
         if c in df.columns:
             df[c] = df[c].replace(0, pd.NA)
 
-    # split status tuples into status + reason
     for c in STATUS_COLS:
         if c not in df.columns:
             continue
@@ -69,66 +68,59 @@ def clean(df):
     return df
 
 
+def select_preferred_env(df):
+    """Keep only the highest-priority environment per model."""
+    rank = {e: i for i, e in enumerate(ENV_PRIORITY)}
+    df["_rank"] = df["environment"].map(rank).fillna(len(ENV_PRIORITY)).astype(int)
+
+    # record which envs each model was seen in (for transparency)
+    seen = (df.groupby(KEY_COLS)
+              .apply(lambda x: ",".join(sorted(set(x["environment"]),
+                                               key=lambda e: rank.get(e, 99))),
+                     include_groups=False)
+              .rename("environments_available").reset_index())
+
+    best = df.groupby(KEY_COLS)["_rank"].transform("min")
+    df = df[df["_rank"] == best].copy()
+    df = df.merge(seen, on=KEY_COLS, how="left")
+    return df.drop(columns="_rank")
+
+
 def agg_status(s):
     s = s.dropna()
     if s.empty:
         return None
-    return "FAIL" if (s == "FAIL").any() else s.iloc[0]   # any FAIL wins
+    return "FAIL" if (s == "FAIL").any() else s.iloc[0]
 
 
 def agg_reasons(s):
-    r = sorted({x for x in s if x})
-    return " | ".join(r)
+    return " | ".join(sorted({x for x in s if x}))
 
 
 def collapse_duplicates(df):
-    """Same model + same env appearing multiple times (re-runs) -> one row."""
-    meta = set(KEY_COLS + STATIC_COLS + ["environment", "source_file"])
-    reason_cols = [f"{c}__reason" for c in STATUS_COLS if f"{c}__reason" in df.columns]
+    """Re-runs of same model in the chosen env -> one row."""
     status_cols = [c for c in STATUS_COLS if c in df.columns]
+    reason_cols = [f"{c}__reason" for c in status_cols]
+    first_cols = [c for c in df.columns
+                  if c in ("environment", "environments_available")
+                  or (c not in KEY_COLS + status_cols + reason_cols + ["source_file"]
+                      and not pd.api.types.is_numeric_dtype(df[c]))]
     num_cols = [c for c in df.columns
-                if c not in meta and c not in status_cols + reason_cols]
+                if c not in KEY_COLS + status_cols + reason_cols + first_cols + ["source_file"]]
 
     agg = {c: "mean" for c in num_cols}
     agg.update({c: agg_status for c in status_cols})
     agg.update({c: agg_reasons for c in reason_cols})
-    agg.update({c: "first" for c in STATIC_COLS if c in df.columns})
+    agg.update({c: "first" for c in first_cols})
     agg["source_file"] = lambda s: ", ".join(sorted(set(s)))
 
-    g = df.groupby(KEY_COLS + ["environment"], dropna=False).agg(agg).reset_index()
-    return g, num_cols, status_cols, reason_cols
+    out = df.groupby(KEY_COLS, dropna=False).agg(agg).reset_index()
 
-
-def pivot_envs(g, num_cols, status_cols, reason_cols):
-    metric_cols = num_cols + status_cols
-    envs = sorted(g["environment"].unique(),
-                  key=lambda e: (ENV_ORDER.index(e) if e in ENV_ORDER else 99, e))
-
-    # static info: first non-null per model
-    static = [c for c in STATIC_COLS if c in g.columns]
-    base = g.groupby(KEY_COLS, dropna=False)[static].first().reset_index()
-
-    wide = base
-    for m in metric_cols:
-        for e in envs:
-            sub = g.loc[g["environment"] == e, KEY_COLS + [m]].rename(columns={m: f"{m}_{e}"})
-            wide = wide.merge(sub, on=KEY_COLS, how="left")
-
-    # consolidate fail reasons into one column per env (keeps sheet narrow)
-    for e in envs:
-        sub = g.loc[g["environment"] == e, KEY_COLS + reason_cols].copy()
-        def join_row(r):
-            parts = [f"{c.replace('__reason','')}: {r[c]}" for c in reason_cols if r[c]]
-            return " | ".join(parts)
-        sub[f"fail_reasons_{e}"] = sub.apply(join_row, axis=1)
-        wide = wide.merge(sub[KEY_COLS + [f"fail_reasons_{e}"]], on=KEY_COLS, how="left")
-
-    src = g.groupby(KEY_COLS, dropna=False)["source_file"].agg(
-        lambda s: ", ".join(sorted({x for v in s for x in v.split(", ")}))).reset_index()
-    wide = wide.merge(src, on=KEY_COLS, how="left")
-    wide["environments_present"] = wide[[f"{status_cols[0]}_{e}" for e in envs]].notna() \
-        .apply(lambda r: ",".join(e for e, ok in zip(envs, r) if ok), axis=1) if status_cols else ""
-    return wide
+    # merge reasons into a single column
+    def join_reasons(r):
+        return " | ".join(f"{c.replace('__reason', '')}: {r[c]}" for c in reason_cols if r[c])
+    out["fail_reasons"] = out.apply(join_reasons, axis=1)
+    return out.drop(columns=reason_cols)
 
 
 def main():
@@ -139,14 +131,19 @@ def main():
     a = ap.parse_args()
 
     df = clean(load_all(a.input_dir, a.pattern))
-    g, num_cols, status_cols, reason_cols = collapse_duplicates(df)
-    wide = pivot_envs(g, num_cols, status_cols, reason_cols)
+    df = select_preferred_env(df)
+    out = collapse_duplicates(df)
+
+    # nicer column order
+    front = ["model_name", "model_id", "environment", "environments_available"]
+    out = out[front + [c for c in out.columns if c not in front]]
 
     if a.output.lower().endswith(".csv"):
-        wide.to_csv(a.output, index=False)
+        out.to_csv(a.output, index=False)
     else:
-        wide.to_excel(a.output, index=False)
-    print(f"\nwrote {a.output}: {len(wide)} models x {wide.shape[1]} columns")
+        out.to_excel(a.output, index=False)
+    print(f"\nwrote {a.output}: {len(out)} models")
+    print(out["environment"].value_counts().to_string())
 
 
 if __name__ == "__main__":
