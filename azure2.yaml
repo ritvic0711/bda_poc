@@ -1,0 +1,132 @@
+# =============================================================================
+# configs/<env>/azure.yaml  — PURE CONFIG. No Python resolves anything.
+# =============================================================================
+# _catalog   : each model defined ONCE (model id + cost). No endpoint, no headers.
+# _endpoints : per-env url + key, ONCE each.
+# _headers   : per-env Content-Type + subscription key, ONCE each.
+# environments: wiring. APIM lines carry Openai-model + Openai-model-version
+#   inline, merged with the per-env header anchor via  <<: [*hdr_<env>] .
+# yaml.safe_load resolves every merge; default_headers reaches init_chat_model
+# complete. PyYAML needs the SEQUENCE merge form  <<: [*a, *b]  in flow maps.
+# Replace # TODO model strings + Openai-model-version with real values.
+# =============================================================================
+
+vendor: azure
+
+_base: &base { provider: azure, model_type: azure_openai, model_provider: openai }
+_stream_temp: &stream_temp { streaming: true, temperature: 0 }
+_base_apim: &base_apim { <<: [*base], use_responses_api: true, store: false }
+_base_legacy: &base_legacy { <<: [*base], default_query: { api-version: "20252006" } }
+
+_endpoints:
+  qa_apim: &ep_qa_apim       { base_url: "${AZURE_QA_APIM_HOST_URL}",  api_key: "${AZURE_QA_API_KEY}" }
+  qa_legacy: &ep_qa_legacy   { base_url: "${AZURE_QA_LEGACY_URL}",     api_key: "${AZURE_QA_OPENAI_API_KEY}" }
+  dev_apim: &ep_dev_apim     { base_url: "${AZURE_DEV_APIM_HOST_URL}", api_key: "${AZURE_DEV_API_KEY}" }
+  dev_legacy: &ep_dev_legacy { base_url: "${AZURE_DEV_LEGACY_URL}",    api_key: "${AZURE_DEV_OPENAI_API_KEY}" }
+
+_headers:
+  qa: &hdr_qa   { Content-Type: "application/json", Ocp-Apim-Subscription-Key: "${AZURE_QA_SUBSCRIPTION_KEY}" }
+  dev: &hdr_dev { Content-Type: "application/json", Ocp-Apim-Subscription-Key: "${AZURE_DEV_SUBSCRIPTION_KEY}" }
+
+_catalog:
+  azure_textembeddingada002: &azure_textembeddingada002 { <<: [*base_legacy, *stream_temp], model: "text-embedding-ada-002", cost: { input_per_1m: 0.15, output_per_1m: 0.6 } }
+  azure_textembedding3small: &azure_textembedding3small { <<: [*base_legacy, *stream_temp], model: "text-embedding-3-small", cost: { input_per_1m: 0.15, output_per_1m: 0.6 } }
+  azure_o3minigs: &azure_o3minigs { <<: [*base_legacy, *stream_temp], model: "o3-mini", cost: { input_per_1m: 0.15, output_per_1m: 0.6 } }
+  azure_o3: &azure_o3 { <<: [*base_legacy, *stream_temp], model: "o3", cost: { input_per_1m: 2.0, output_per_1m: 8.0 } }
+  azure_o4mini: &azure_o4mini { <<: [*base_legacy, *stream_temp], model: "o4-mini", cost: { input_per_1m: 0.15, output_per_1m: 0.6 } }
+  azure_gpt41: &azure_gpt41 { <<: [*base_legacy, *stream_temp], model: "gpt-4.1", cost: { input_per_1m: 2.0, output_per_1m: 8.0 } }
+  azure_gpt41minizptu: &azure_gpt41minizptu { <<: [*base_legacy, *stream_temp], model: "gpt-4.1-mini", cost: { input_per_1m: 0.15, output_per_1m: 0.6 } }
+  azure_gpt5zstd: &azure_gpt5zstd { <<: [*base_legacy, *stream_temp], model: "gpt-5", cost: { input_per_1m: 0, output_per_1m: 0 } }
+  azure_gpt5gs: &azure_gpt5gs { <<: [*base_legacy, *stream_temp], model: "gpt-5", cost: { input_per_1m: 0, output_per_1m: 0 } }
+  azure_gpt5nanozstd: &azure_gpt5nanozstd { <<: [*base_legacy, *stream_temp], model: "gpt-5-nano", cost: { input_per_1m: 0, output_per_1m: 0 } }
+  azure_gpt5nanogs: &azure_gpt5nanogs { <<: [*base_legacy, *stream_temp], model: "gpt-5-nano", cost: { input_per_1m: 0, output_per_1m: 0 } }
+  azure_gpt4omini20240718zstd: &azure_gpt4omini20240718zstd { <<: [*base_legacy, *stream_temp], model: "gpt-4o-mini-2024-07-18", cost: { input_per_1m: 0.15, output_per_1m: 0.6 } }
+  azure_gpt41zstd: &azure_gpt41zstd { <<: [*base_legacy, *stream_temp], model: "gpt-4.1", cost: { input_per_1m: 2.0, output_per_1m: 8.0 } }
+  azure_textembedding3large: &azure_textembedding3large { <<: [*base_apim, *stream_temp], model: "text-embedding-3-large", cost: { input_per_1m: 0.13, output_per_1m: 0 } }
+  azure_gpt5minizstd: &azure_gpt5minizstd { <<: [*base_apim, *stream_temp], model: "gpt-5-mini", cost: { input_per_1m: 0, output_per_1m: 0 } }
+  azure_gpt5minigs: &azure_gpt5minigs { <<: [*base_apim, *stream_temp], model: "gpt-5-mini", cost: { input_per_1m: 0, output_per_1m: 0 } }
+  azure_gpt5minizptu: &azure_gpt5minizptu { <<: [*base_apim, *stream_temp], model: "gpt-5-mini", cost: { input_per_1m: 0, output_per_1m: 0 } }
+  azure_gpt51: &azure_gpt51 { <<: [*base_apim, *stream_temp], model: "gpt-5.1", cost: { input_per_1m: 0, output_per_1m: 0 } }
+  azure_gpt52: &azure_gpt52 { <<: [*base_apim, *stream_temp], model: "gpt-5.2", cost: { input_per_1m: 0, output_per_1m: 0 } }
+  azure_gpt54: &azure_gpt54 { <<: [*base_apim, *stream_temp], model: "gpt-5.4", cost: { input_per_1m: 0, output_per_1m: 0 } }
+  azure_gpt54minigs: &azure_gpt54minigs { <<: [*base_apim, *stream_temp], model: "gpt-5.4", cost: { input_per_1m: 0, output_per_1m: 0 } }
+  azure_gpt54minizstd: &azure_gpt54minizstd { <<: [*base_apim, *stream_temp], model: "gpt-5.4-mini", cost: { input_per_1m: 0, output_per_1m: 0 } }
+  azure_gpt54nano: &azure_gpt54nano { <<: [*base_apim, *stream_temp], model: "gpt-5.4-nano", cost: { input_per_1m: 0, output_per_1m: 0 } }
+  azure_gpt53codex: &azure_gpt53codex { <<: [*base_apim, *stream_temp], model: "gpt-5.3-codex", cost: { input_per_1m: 0, output_per_1m: 0 } }
+  azure_gpt55zstd: &azure_gpt55zstd { <<: [*base_apim, *stream_temp], model: "gpt-5.5", cost: { input_per_1m: 0, output_per_1m: 0 } }
+  azure_gpt55gs: &azure_gpt55gs { <<: [*base_apim, *stream_temp], model: "gpt-5.5", cost: { input_per_1m: 0, output_per_1m: 0 } }
+  azure_gpt56lunazstd: &azure_gpt56lunazstd { <<: [*base_apim, *stream_temp], model: "gpt-5.6-luna", cost: { input_per_1m: 0.15, output_per_1m: 0.6 } }
+  azure_gpt56solzstd: &azure_gpt56solzstd { <<: [*base_apim, *stream_temp], model: "gpt-5.6-sol", cost: { input_per_1m: 0, output_per_1m: 0 } }
+  azure_gpt56terrazstd: &azure_gpt56terrazstd { <<: [*base_apim, *stream_temp], model: "gpt-5.6-terra", cost: { input_per_1m: 0, output_per_1m: 0 } }
+
+environments:
+  qa:
+    models:
+      # ---- legacy (direct Azure; no Openai-model header) ----
+      - { <<: [*azure_textembeddingada002, *ep_qa_legacy], name: Azure_TextEmbeddingAda002, base_url: "${AZURE_QA_LEGACY_URL}/text-embedding-ada-002", default_headers: *hdr_qa }
+      - { <<: [*azure_textembedding3small, *ep_qa_legacy], name: Azure_TextEmbedding3Small, base_url: "${AZURE_QA_LEGACY_URL}/text-embedding-3-small", default_headers: *hdr_qa }
+      - { <<: [*azure_o3minigs, *ep_qa_legacy], name: Azure_O3MiniGs, default_headers: *hdr_qa }
+      - { <<: [*azure_o3, *ep_qa_legacy], name: Azure_O3, default_headers: *hdr_qa }
+      - { <<: [*azure_o4mini, *ep_qa_legacy], name: Azure_O4Mini, default_headers: *hdr_qa }
+      - { <<: [*azure_gpt41, *ep_qa_legacy], name: Azure_Gpt41, default_headers: *hdr_qa }
+      - { <<: [*azure_gpt41minizptu, *ep_qa_legacy], name: Azure_Gpt41MiniZptu, default_headers: *hdr_qa }
+      - { <<: [*azure_gpt5zstd, *ep_qa_legacy], name: Azure_Gpt5Zstd, default_headers: *hdr_qa }
+      - { <<: [*azure_gpt5gs, *ep_qa_legacy], name: Azure_Gpt5Gs, default_headers: *hdr_qa }
+      - { <<: [*azure_gpt5nanozstd, *ep_qa_legacy], name: Azure_Gpt5NanoZstd, default_headers: *hdr_qa }
+      - { <<: [*azure_gpt5nanogs, *ep_qa_legacy], name: Azure_Gpt5NanoGs, default_headers: *hdr_qa }
+      - { <<: [*azure_gpt4omini20240718zstd, *ep_qa_legacy], name: Azure_Gpt4oMini20240718Zstd, default_headers: *hdr_qa }
+      - { <<: [*azure_gpt41zstd, *ep_qa_legacy], name: Azure_Gpt41Zstd, default_headers: *hdr_qa }
+      # ---- apim (Openai-model + Openai-model-version inline) ----
+      - { <<: [*azure_textembedding3large, *ep_qa_apim], name: Azure_TextEmbedding3Large, default_headers: { <<: [*hdr_qa], Openai-model: "text-embedding-3-large", Openai-model-version: "2026-07-09" } }
+      - { <<: [*azure_gpt5minizstd, *ep_qa_apim], name: Azure_Gpt5MiniZstd, default_headers: { <<: [*hdr_qa], Openai-model: "gpt-5-mini", Openai-model-version: "2026-07-09" } }
+      - { <<: [*azure_gpt5minigs, *ep_qa_apim], name: Azure_Gpt5MiniGs, default_headers: { <<: [*hdr_qa], Openai-model: "gpt-5-mini", Openai-model-version: "2026-07-09" } }
+      - { <<: [*azure_gpt5minizptu, *ep_qa_apim], name: Azure_Gpt5MiniZptu, default_headers: { <<: [*hdr_qa], Openai-model: "gpt-5-mini", Openai-model-version: "2026-07-09" } }
+      - { <<: [*azure_gpt51, *ep_qa_apim], name: Azure_Gpt51, default_headers: { <<: [*hdr_qa], Openai-model: "gpt-5.1", Openai-model-version: "2026-07-09" } }
+      - { <<: [*azure_gpt52, *ep_qa_apim], name: Azure_Gpt52, default_headers: { <<: [*hdr_qa], Openai-model: "gpt-5.2", Openai-model-version: "2026-07-09" } }
+      - { <<: [*azure_gpt54, *ep_qa_apim], name: Azure_Gpt54, default_headers: { <<: [*hdr_qa], Openai-model: "gpt-5.4", Openai-model-version: "2026-07-09" } }
+      - { <<: [*azure_gpt54minigs, *ep_qa_apim], name: Azure_Gpt54MiniGs, default_headers: { <<: [*hdr_qa], Openai-model: "gpt-5.4", Openai-model-version: "2026-07-09" } }
+      - { <<: [*azure_gpt54minizstd, *ep_qa_apim], name: Azure_Gpt54MiniZstd, default_headers: { <<: [*hdr_qa], Openai-model: "gpt-5.4-mini", Openai-model-version: "2026-07-09" } }
+      - { <<: [*azure_gpt54nano, *ep_qa_apim], name: Azure_Gpt54Nano, default_headers: { <<: [*hdr_qa], Openai-model: "gpt-5.4-nano", Openai-model-version: "2026-07-09" } }
+      - { <<: [*azure_gpt53codex, *ep_qa_apim], name: Azure_Gpt53Codex, default_headers: { <<: [*hdr_qa], Openai-model: "gpt-5.3-codex", Openai-model-version: "2026-07-09" } }
+      - { <<: [*azure_gpt55zstd, *ep_qa_apim], name: Azure_Gpt55Zstd, default_headers: { <<: [*hdr_qa], Openai-model: "gpt-5.5", Openai-model-version: "2026-07-09" } }
+      - { <<: [*azure_gpt55gs, *ep_qa_apim], name: Azure_Gpt55Gs, default_headers: { <<: [*hdr_qa], Openai-model: "gpt-5.5", Openai-model-version: "2026-07-09" } }
+      - { <<: [*azure_gpt56lunazstd, *ep_qa_apim], name: Azure_Gpt56LunaZstd, default_headers: { <<: [*hdr_qa], Openai-model: "gpt-5.6-luna", Openai-model-version: "2026-07-09" } }
+      - { <<: [*azure_gpt56solzstd, *ep_qa_apim], name: Azure_Gpt56SolZstd, default_headers: { <<: [*hdr_qa], Openai-model: "gpt-5.6-sol", Openai-model-version: "2026-07-09" } }
+      - { <<: [*azure_gpt56terrazstd, *ep_qa_apim], name: Azure_Gpt56TerraZstd, default_headers: { <<: [*hdr_qa], Openai-model: "gpt-5.6-terra", Openai-model-version: "2026-07-09" } }
+  dev:
+    models:
+      # ---- legacy (direct Azure; no Openai-model header) ----
+      - { <<: [*azure_textembeddingada002, *ep_dev_legacy], name: Azure_TextEmbeddingAda002, base_url: "${AZURE_DEV_LEGACY_URL}/text-embedding-ada-002", default_headers: *hdr_dev }
+      - { <<: [*azure_textembedding3small, *ep_dev_legacy], name: Azure_TextEmbedding3Small, base_url: "${AZURE_DEV_LEGACY_URL}/text-embedding-3-small", default_headers: *hdr_dev }
+      - { <<: [*azure_o3minigs, *ep_dev_legacy], name: Azure_O3MiniGs, default_headers: *hdr_dev }
+      - { <<: [*azure_o3, *ep_dev_legacy], name: Azure_O3, default_headers: *hdr_dev }
+      - { <<: [*azure_o4mini, *ep_dev_legacy], name: Azure_O4Mini, default_headers: *hdr_dev }
+      - { <<: [*azure_gpt41, *ep_dev_legacy], name: Azure_Gpt41, default_headers: *hdr_dev }
+      - { <<: [*azure_gpt41minizptu, *ep_dev_legacy], name: Azure_Gpt41MiniZptu, default_headers: *hdr_dev }
+      - { <<: [*azure_gpt5zstd, *ep_dev_legacy], name: Azure_Gpt5Zstd, default_headers: *hdr_dev }
+      - { <<: [*azure_gpt5gs, *ep_dev_legacy], name: Azure_Gpt5Gs, default_headers: *hdr_dev }
+      - { <<: [*azure_gpt5nanozstd, *ep_dev_legacy], name: Azure_Gpt5NanoZstd, default_headers: *hdr_dev }
+      - { <<: [*azure_gpt5nanogs, *ep_dev_legacy], name: Azure_Gpt5NanoGs, default_headers: *hdr_dev }
+      - { <<: [*azure_gpt4omini20240718zstd, *ep_dev_legacy], name: Azure_Gpt4oMini20240718Zstd, default_headers: *hdr_dev }
+      - { <<: [*azure_gpt41zstd, *ep_dev_legacy], name: Azure_Gpt41Zstd, default_headers: *hdr_dev }
+      # ---- apim (Openai-model + Openai-model-version inline) ----
+      - { <<: [*azure_textembedding3large, *ep_dev_apim], name: Azure_TextEmbedding3Large, default_headers: { <<: [*hdr_dev], Openai-model: "text-embedding-3-large", Openai-model-version: "2026-07-09" } }
+      - { <<: [*azure_gpt5minizstd, *ep_dev_apim], name: Azure_Gpt5MiniZstd, default_headers: { <<: [*hdr_dev], Openai-model: "gpt-5-mini", Openai-model-version: "2026-07-09" } }
+      - { <<: [*azure_gpt5minigs, *ep_dev_apim], name: Azure_Gpt5MiniGs, default_headers: { <<: [*hdr_dev], Openai-model: "gpt-5-mini", Openai-model-version: "2026-07-09" } }
+      - { <<: [*azure_gpt5minizptu, *ep_dev_apim], name: Azure_Gpt5MiniZptu, default_headers: { <<: [*hdr_dev], Openai-model: "gpt-5-mini", Openai-model-version: "2026-07-09" } }
+      - { <<: [*azure_gpt51, *ep_dev_apim], name: Azure_Gpt51, default_headers: { <<: [*hdr_dev], Openai-model: "gpt-5.1", Openai-model-version: "2026-07-09" } }
+      - { <<: [*azure_gpt52, *ep_dev_apim], name: Azure_Gpt52, default_headers: { <<: [*hdr_dev], Openai-model: "gpt-5.2", Openai-model-version: "2026-07-09" } }
+      - { <<: [*azure_gpt54, *ep_dev_apim], name: Azure_Gpt54, default_headers: { <<: [*hdr_dev], Openai-model: "gpt-5.4", Openai-model-version: "2026-07-09" } }
+      - { <<: [*azure_gpt54minigs, *ep_dev_apim], name: Azure_Gpt54MiniGs, default_headers: { <<: [*hdr_dev], Openai-model: "gpt-5.4", Openai-model-version: "2026-07-09" } }
+      - { <<: [*azure_gpt54minizstd, *ep_dev_apim], name: Azure_Gpt54MiniZstd, default_headers: { <<: [*hdr_dev], Openai-model: "gpt-5.4-mini", Openai-model-version: "2026-07-09" } }
+      - { <<: [*azure_gpt54nano, *ep_dev_apim], name: Azure_Gpt54Nano, default_headers: { <<: [*hdr_dev], Openai-model: "gpt-5.4-nano", Openai-model-version: "2026-07-09" } }
+      - { <<: [*azure_gpt53codex, *ep_dev_apim], name: Azure_Gpt53Codex, default_headers: { <<: [*hdr_dev], Openai-model: "gpt-5.3-codex", Openai-model-version: "2026-07-09" } }
+      - { <<: [*azure_gpt55zstd, *ep_dev_apim], name: Azure_Gpt55Zstd, default_headers: { <<: [*hdr_dev], Openai-model: "gpt-5.5", Openai-model-version: "2026-07-09" } }
+      - { <<: [*azure_gpt55gs, *ep_dev_apim], name: Azure_Gpt55Gs, default_headers: { <<: [*hdr_dev], Openai-model: "gpt-5.5", Openai-model-version: "2026-07-09" } }
+      - { <<: [*azure_gpt56lunazstd, *ep_dev_apim], name: Azure_Gpt56LunaZstd, default_headers: { <<: [*hdr_dev], Openai-model: "gpt-5.6-luna", Openai-model-version: "2026-07-09" } }
+      - { <<: [*azure_gpt56solzstd, *ep_dev_apim], name: Azure_Gpt56SolZstd, default_headers: { <<: [*hdr_dev], Openai-model: "gpt-5.6-sol", Openai-model-version: "2026-07-09" } }
+      - { <<: [*azure_gpt56terrazstd, *ep_dev_apim], name: Azure_Gpt56TerraZstd, default_headers: { <<: [*hdr_dev], Openai-model: "gpt-5.6-terra", Openai-model-version: "2026-07-09" } }
+
+test_settings:
+  structured_instruction: |
+    Do not wrap inside custom syntax blocks outside valid JSON notation arrays.
