@@ -1,0 +1,91 @@
+# =============================================================================
+# configs/aws.yaml  — all AWS accounts (environments) in one file. PURE CONFIG.
+# =============================================================================
+# Selector is the ACCOUNT (environment): --vendor aws --env dev|qa|prod.
+# Each account supplies its AWS region + credentials profile; the model id and
+# cost live once in _catalog.
+#
+# Two ACCESS methods, both expressible per model:
+#   runtime : standard Bedrock Converse (model_provider bedrock_converse, region)
+#   mantle  : Bedrock OpenAI-compatible endpoint (model_provider openai,
+#             auth_method bedrock_mantle_iam — the auth handler mints the IAM
+#             bearer token and builds the bedrock-mantle base_url from region).
+# A model that supports BOTH gets two wiring lines sharing one catalog anchor:
+# one with *runtime, one with *mantle. A runtime-only model gets just the first.
+#
+# MERGE: <<: [*a, *b, ...] — FIRST anchor wins on key clash; a key written on the
+# line itself beats all anchors. Use the sequence form (PyYAML rejects two '<<').
+# =============================================================================
+
+vendor: aws
+
+test_settings:
+  structured_instruction: |
+    Do not wrap inside custom syntax blocks outside valid JSON notation arrays.
+
+_base: &base { provider: aws, streaming: true, temperature: 0 }
+
+# ---- access methods (NO region, NO model id here) ----
+_runtime: &runtime
+  <<: [*base]
+  model_type: bedrock_runtime
+  model_provider: bedrock_converse
+_mantle: &mantle
+  <<: [*base]
+  model_type: bedrock_mantle
+  model_provider: openai
+  auth_method: bedrock_mantle_iam     # handler injects api_key (IAM token) + base_url
+
+# ---- per-account settings: region + AWS profile (the ONLY per-env part) ----
+# If you auth by env-var keys or an instance role instead of named profiles,
+# delete credentials_profile_name — boto3 picks creds up on its own.
+_accounts:
+  dev:  &acc_dev  { region_name: "us-east-1", credentials_profile_name: "dev" }
+  qa:   &acc_qa   { region_name: "us-east-1", credentials_profile_name: "qa" }
+  prod: &acc_prod { region_name: "us-east-1", credentials_profile_name: "prod" }
+
+# ---- catalog: model id (inference profile) + cost, ONCE per model ----
+# Shared by both access methods. If mantle needs a different model string than
+# runtime, override `model:` on the mantle wiring line.
+_catalog:
+  claude_3_sonnet: &claude_3_sonnet
+    model: "us.anthropic.claude-3-sonnet-20240229-v1:0"
+    cost: { input_per_1m: 0.70, output_per_1m: 0.60 }
+  claude_3_haiku: &claude_3_haiku
+    model: "us.anthropic.claude-3-haiku-20240307-v1:0"
+    cost: { input_per_1m: 0.70, output_per_1m: 0.60 }
+  claude_opus_41: &claude_opus_41
+    model: "us.anthropic.claude-opus-4-1-20250805-v1:0"
+    cost: { input_per_1m: 0.70, output_per_1m: 0.60 }
+  claude_opus_45: &claude_opus_45
+    model: "us.anthropic.claude-opus-4-5-20251101-v1:0"
+    cost: { input_per_1m: 0.70, output_per_1m: 0.60 }
+
+# =============================================================================
+# environments (accounts) — wiring only. A line = access + catalog + account + name.
+# Models available via BOTH get a _Runtime and a _Mantle line.
+# =============================================================================
+environments:
+
+  dev:
+    models:
+      # --- both access methods ---
+      - { <<: [*runtime, *claude_3_sonnet, *acc_dev], name: Claude3Sonnet_Runtime }
+      - { <<: [*mantle,  *claude_3_sonnet, *acc_dev], name: Claude3Sonnet_Mantle }
+      - { <<: [*runtime, *claude_3_haiku,  *acc_dev], name: Claude3Haiku_Runtime }
+      - { <<: [*mantle,  *claude_3_haiku,  *acc_dev], name: Claude3Haiku_Mantle }
+      # --- runtime only ---
+      - { <<: [*runtime, *claude_opus_41,  *acc_dev], name: ClaudeOpus41_Runtime }
+      - { <<: [*runtime, *claude_opus_45,  *acc_dev], name: ClaudeOpus45_Runtime }
+
+  qa:
+    models:
+      - { <<: [*runtime, *claude_3_sonnet, *acc_qa], name: Claude3Sonnet_Runtime }
+      - { <<: [*mantle,  *claude_3_sonnet, *acc_qa], name: Claude3Sonnet_Mantle }
+      - { <<: [*runtime, *claude_3_haiku,  *acc_qa], name: Claude3Haiku_Runtime }
+      - { <<: [*runtime, *claude_opus_45,  *acc_qa], name: ClaudeOpus45_Runtime }
+
+  prod:
+    models:
+      - { <<: [*runtime, *claude_opus_45,  *acc_prod], name: ClaudeOpus45_Runtime }
+      - { <<: [*mantle,  *claude_opus_45,  *acc_prod], name: ClaudeOpus45_Mantle }
