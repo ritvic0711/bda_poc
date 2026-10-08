@@ -1,13 +1,15 @@
 # =============================================================================
-# configs/qa/aws.yaml  — all AWS models in one file. PURE CONFIG (no expander).
+# configs/aws.yaml  — all AWS accounts (dev, qa) in one file. PURE CONFIG.
 # =============================================================================
-# Selector is the ACCOUNT (environment): --vendor aws --env qa.
+# Selector is the ACCOUNT (environment): --vendor aws --env dev|qa  (or "dev,qa").
 #
-# Per-model axis here is the INFERENCE PROFILE: us.<id> vs global.<id>. Each
-# (model, profile) is one catalog anchor with its full model id; each wiring
-# line references it. All are runtime (Bedrock Converse) — openai.* models run
-# through Bedrock too. A model that also needs the mantle endpoint gets a second
-# wiring line with *mantle (and override `model:` if the mantle id differs).
+# Per-model axis is the INFERENCE PROFILE: us.<id> vs global.<id>. Each
+# (model, profile) is ONE catalog anchor (full model id + cost), shared by every
+# environment. Each env's wiring line pairs a catalog anchor with that account.
+#
+# Per-account creds come from env vars (temporary STS creds): set
+#   AWS_DEV_ACCESS_KEY_ID / AWS_DEV_SECRET_ACCESS_KEY / AWS_DEV_SESSION_TOKEN
+#   AWS_QA_ACCESS_KEY_ID  / AWS_QA_SECRET_ACCESS_KEY  / AWS_QA_SESSION_TOKEN
 #
 # MERGE: <<: [*a, *b, ...] — FIRST anchor wins on key clash; a key on the line
 # itself beats all anchors. Sequence form only (PyYAML rejects two '<<').
@@ -32,9 +34,18 @@ _mantle: &mantle
   model_provider: openai
   auth_method: bedrock_mantle_iam     # handler injects api_key (IAM token) + base_url
 
-# ---- per-account settings: region + AWS profile (the ONLY per-env part) ----
+# ---- per-account creds (STS temporary creds via env vars) ----
 _accounts:
-  qa: &acc_qa { region_name: "us-east-1" }   # add credentials_profile_name: "qa" if you use named profiles
+  dev: &acc_dev
+    region_name: "us-east-1"
+    aws_access_key_id: "${AWS_DEV_ACCESS_KEY_ID}"
+    aws_secret_access_key: "${AWS_DEV_SECRET_ACCESS_KEY}"
+    aws_session_token: "${AWS_DEV_SESSION_TOKEN}"
+  qa: &acc_qa
+    region_name: "us-east-1"
+    aws_access_key_id: "${AWS_QA_ACCESS_KEY_ID}"
+    aws_secret_access_key: "${AWS_QA_SECRET_ACCESS_KEY}"
+    aws_session_token: "${AWS_QA_SESSION_TOKEN}"
 
 # ---- cost shared by all (override per catalog entry if a model differs) ----
 _cost: &cost { input_per_1m: 0.70, output_per_1m: 0.60 }
@@ -78,9 +89,48 @@ _catalog:
   gpt6astra_global: &gpt6astra_global { model: "global.openai.gpt-6-astra", cost: *cost }
 
 # =============================================================================
-# environments (accounts) — wiring only. A line = access + catalog + account + name.
+# environments (accounts) — wiring only. Same models in each; loader prefixes
+# the name with the env (DEV_/QA_), so names repeat safely across accounts.
 # =============================================================================
 environments:
+
+  dev:
+    models:
+      - { <<: [*runtime, *claude3sonnet20240229_us, *acc_dev], name: Claude3Sonnet20240229_Us }
+      - { <<: [*runtime, *claude3haiku20240307_us, *acc_dev], name: Claude3Haiku20240307_Us }
+      - { <<: [*runtime, *claudeopus41_us, *acc_dev], name: ClaudeOpus41_Us }
+      - { <<: [*runtime, *claudeopus45_us, *acc_dev], name: ClaudeOpus45_Us }
+      - { <<: [*runtime, *claudeopus45_global, *acc_dev], name: ClaudeOpus45_Global }
+      - { <<: [*runtime, *claudeopus47_us, *acc_dev], name: ClaudeOpus47_Us }
+      - { <<: [*runtime, *claudeopus47_global, *acc_dev], name: ClaudeOpus47_Global }
+      - { <<: [*runtime, *claudesonnet45_us, *acc_dev], name: ClaudeSonnet45_Us }
+      - { <<: [*runtime, *claudesonnet45_global, *acc_dev], name: ClaudeSonnet45_Global }
+      - { <<: [*runtime, *claudesonnet4_us, *acc_dev], name: ClaudeSonnet4_Us }
+      - { <<: [*runtime, *claudesonnet4_global, *acc_dev], name: ClaudeSonnet4_Global }
+      - { <<: [*runtime, *claudeopus48_us, *acc_dev], name: ClaudeOpus48_Us }
+      - { <<: [*runtime, *claudeopus48_global, *acc_dev], name: ClaudeOpus48_Global }
+      - { <<: [*runtime, *claudefable5_us, *acc_dev], name: ClaudeFable5_Us }
+      - { <<: [*runtime, *claudefable5_global, *acc_dev], name: ClaudeFable5_Global }
+      - { <<: [*runtime, *claudesonnet5_us, *acc_dev], name: ClaudeSonnet5_Us }
+      - { <<: [*runtime, *claudesonnet5_global, *acc_dev], name: ClaudeSonnet5_Global }
+      - { <<: [*runtime, *claudeopus5_us, *acc_dev], name: ClaudeOpus5_Us }
+      - { <<: [*runtime, *claudeopus5_global, *acc_dev], name: ClaudeOpus5_Global }
+      - { <<: [*runtime, *gpt56terra_us, *acc_dev], name: GPT56Terra_Us }
+      - { <<: [*runtime, *gpt56terra_global, *acc_dev], name: GPT56Terra_Global }
+      - { <<: [*runtime, *gpt56luna_us, *acc_dev], name: GPT56Luna_Us }
+      - { <<: [*runtime, *gpt56luna_global, *acc_dev], name: GPT56Luna_Global }
+      - { <<: [*runtime, *gpt56sol_us, *acc_dev], name: GPT56Sol_Us }
+      - { <<: [*runtime, *gpt56sol_global, *acc_dev], name: GPT56Sol_Global }
+      - { <<: [*runtime, *claudehaiku45_us, *acc_dev], name: ClaudeHaiku45_Us }
+      - { <<: [*runtime, *claudehaiku45_global, *acc_dev], name: ClaudeHaiku45_Global }
+      - { <<: [*runtime, *claudeopus46_us, *acc_dev], name: ClaudeOpus46_Us }
+      - { <<: [*runtime, *claudeopus46_global, *acc_dev], name: ClaudeOpus46_Global }
+      - { <<: [*runtime, *claudefable51_us, *acc_dev], name: ClaudeFable51_Us }
+      - { <<: [*runtime, *claudefable51_global, *acc_dev], name: ClaudeFable51_Global }
+      - { <<: [*runtime, *claudesonnet46_us, *acc_dev], name: ClaudeSonnet46_Us }
+      - { <<: [*runtime, *claudesonnet46_global, *acc_dev], name: ClaudeSonnet46_Global }
+      - { <<: [*runtime, *gpt6astra_us, *acc_dev], name: GPT6Astra_Us }
+      - { <<: [*runtime, *gpt6astra_global, *acc_dev], name: GPT6Astra_Global }
 
   qa:
     models:
