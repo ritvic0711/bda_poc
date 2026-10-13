@@ -1,0 +1,80 @@
+test_settings:
+  structured_instruction: |
+    Respond only with a valid JSON object. Do not use Markdown fences or any extra text.
+    The JSON must match this schema exactly:
+    {
+      "answer": "string",
+      "confidence_score": 0.0
+    }
+
+# ============================================================
+#  SHARED FRAMEWORK DEFAULTS  (identical for every GCP model)
+# ============================================================
+_base: &base
+  provider: "GCP"
+  model_type: "gemini"
+  model_provider: "google_genai"
+  api_key: "dummy"            # Apigee gateway auths via x-api-key header, not this
+  streaming: true
+  include_thoughts: true      # Thinking config (Gemini 3+ models)
+
+# ============================================================
+#  PER-ENVIRONMENT ACCESS  (Apigee base url + gateway key)
+#  Secrets/URLs resolved from env vars at load time.
+# ============================================================
+_dev_access: &dev_access
+  base_url: "${GCP_DEV_APIGEE_BASE_URL}"
+  additional_headers:
+    x-api-key: "${GCP_DEV_APIGEE_API_KEY}"
+
+_qa_access: &qa_access
+  base_url: "${GCP_QA_APIGEE_BASE_URL}"
+  additional_headers:
+    x-api-key: "${GCP_QA_APIGEE_API_KEY}"
+
+# ============================================================
+#  MODEL CATALOG  (one anchor per model: id + thinking + cost)
+#  thinking_level: "low" | "medium" | "high"
+# ============================================================
+_gemini_38_flash: &gemini_38_flash
+  model: "gemini-3.8-flash"
+  thinking_level: "high"
+  cost: { input_per_1m: 0.75, output_per_1m: 3.75 }
+
+_gemini_36_flash: &gemini_36_flash
+  model: "gemini-3.6-flash"
+  thinking_level: "medium"
+  cost: { input_per_1m: 0.75, output_per_1m: 3.75 }
+
+_gemini_35_flash: &gemini_35_flash
+  model: "gemini-3.5-flash"
+  thinking_level: "medium"
+  cost: { input_per_1m: 1.50, output_per_1m: 9.00 }
+
+_gemini_35_flash_lite: &gemini_35_flash_lite
+  model: "gemini-3.5-flash-lite"
+  thinking_level: "medium"
+  cost: { input_per_1m: 0.30, output_per_1m: 2.50 }
+
+_gemini_31_pro: &gemini_31_pro
+  model: "gemini-3.1-pro-preview"
+  thinking_level: "low"
+  cost: { input_per_1m: 2.00, output_per_1m: 12.00 }   # <-- output was cut off in screenshot; VERIFY
+
+# ============================================================
+#  WIRING  (name + base + env access + catalog entry)
+# ============================================================
+environments:
+  dev:
+    - { name: "Gemini_38_flash",      <<: [*base, *dev_access, *gemini_38_flash] }
+    - { name: "Gemini_36_flash",      <<: [*base, *dev_access, *gemini_36_flash] }
+    - { name: "Gemini_35_flash",      <<: [*base, *dev_access, *gemini_35_flash] }
+    - { name: "Gemini_35_flash_lite", <<: [*base, *dev_access, *gemini_35_flash_lite] }
+    - { name: "Gemini_31_pro",        <<: [*base, *dev_access, *gemini_31_pro] }
+
+  qa:
+    - { name: "Gemini_38_flash",      <<: [*base, *qa_access, *gemini_38_flash] }
+    - { name: "Gemini_36_flash",      <<: [*base, *qa_access, *gemini_36_flash] }
+    - { name: "Gemini_35_flash",      <<: [*base, *qa_access, *gemini_35_flash] }
+    - { name: "Gemini_35_flash_lite", <<: [*base, *qa_access, *gemini_35_flash_lite] }
+    - { name: "Gemini_31_pro",        <<: [*base, *qa_access, *gemini_31_pro] }
