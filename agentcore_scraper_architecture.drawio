@@ -1,0 +1,149 @@
+<mxfile host="app.diagrams.net" agent="claude" version="24.0.0">
+  <diagram id="agentcore-scraper" name="AgentCore Scraper Architecture">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="826" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="Azure/Bedrock Model-Retirement Scraper — AWS Bedrock AgentCore (URL-locked, scheduled)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1;fontColor=#232F3E;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="1090" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Legend -->
+        <mxCell id="legend" value="Enforcement:   L1 = network egress, HOST allowlist (Network Firewall)   •   L2 = tool-code EXACT-URL allowlist, host+path (tighter)   •   Prompt instructions are NOT a security layer" style="text;html=1;strokeColor=#CCCCCC;fillColor=#FBFBFB;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontSize=11;fontColor=#555555;" vertex="1" parent="1">
+          <mxGeometry x="40" y="52" width="1090" height="24" as="geometry" />
+        </mxCell>
+
+        <!-- EventBridge Scheduler -->
+        <mxCell id="scheduler" value="EventBridge Scheduler&#10;&#10;cron(0 6 * * ? *)&#10;daily 06:00 UTC" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8EAF6;strokeColor=#5C6BC0;fontColor=#283593;fontSize=12;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="60" y="120" width="160" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- AgentCore Runtime -->
+        <mxCell id="runtime" value="Bedrock AgentCore Runtime&#10;&#10;Claude model + system prompt.&#10;Decides to call the fetch tool,&#10;then runs the parse/enrich step." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EDE7F6;strokeColor=#7E57C2;fontColor=#4527A0;fontSize=12;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="280" y="110" width="220" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- AgentCore Gateway -->
+        <mxCell id="gateway" value="AgentCore Gateway&#10;&#10;Exposes exactly ONE tool&#10;to the runtime:&#10;fetch_retirement_page(url)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EDE7F6;strokeColor=#7E57C2;fontColor=#4527A0;fontSize=12;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="560" y="110" width="200" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- VPC boundary -->
+        <mxCell id="vpc" value="VPC — private subnet (no internet gateway route)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#1565C0;dashed=1;dashPattern=6 4;fontColor=#1565C0;fontSize=13;fontStyle=1;verticalAlign=top;align=left;spacingLeft=16;spacingTop=10;" vertex="1" parent="1">
+          <mxGeometry x="60" y="250" width="1010" height="430" as="geometry" />
+        </mxCell>
+
+        <!-- Lambda fetcher tool -->
+        <mxCell id="lambda" value="AWS Lambda — fetcher tool (L2)&#10;&#10;Exact-URL allowlist: normalized url&#10;must equal one of the TWO frozen&#10;page strings (host AND path), else&#10;PermissionError. Then GET + bs4 parse." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E0F2F1;strokeColor=#00897B;fontColor=#00695C;fontSize=11;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="100" y="295" width="260" height="110" as="geometry" />
+        </mxCell>
+
+        <!-- NAT Gateway -->
+        <mxCell id="nat" value="NAT Gateway&#10;&#10;The ONLY egress route out&#10;of the private subnet." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1E88E5;fontColor=#1565C0;fontSize=12;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="100" y="430" width="260" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Network Firewall -->
+        <mxCell id="firewall" value="AWS Network Firewall (L1)&#10;&#10;TLS-SNI FQDN allowlist = host only&#10;(learn.microsoft.com). Blind to path —&#10;catches wrong HOST, not wrong page.&#10;Everything else DROPPED + logged." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E0;strokeColor=#FB8C00;fontColor=#E65100;fontSize=11;verticalAlign=middle;spacing=6;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="100" y="535" width="260" height="110" as="geometry" />
+        </mxCell>
+
+        <!-- Allowed host -->
+        <mxCell id="allowed" value="learn.microsoft.com : 443&#10;(Azure OpenAI + Foundry retirement pages)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1E88E5;fontColor=#1565C0;fontSize=11;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="430" y="560" width="230" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Blocked -->
+        <mxCell id="blocked" value="every other host&#10;DROPPED" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFEBEE;strokeColor=#E53935;fontColor=#B71C1C;fontSize=11;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="700" y="560" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- S3 -->
+        <mxCell id="s3" value="S3 bucket&#10;&#10;enriched_aggregated_report.csv&#10;Versioned, SSE-KMS." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#43A047;fontColor=#1B5E20;fontSize=12;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="760" y="300" width="230" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- CloudWatch -->
+        <mxCell id="cw" value="CloudWatch Logs&#10;&#10;Run log + firewall deny log&#10;(audit trail the lock held)." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ECEFF1;strokeColor=#78909C;fontColor=#37474F;fontSize=12;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="760" y="420" width="230" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- IAM -->
+        <mxCell id="iam" value="IAM execution roles&#10;&#10;Runtime role: invoke Gateway, write S3.&#10;Lambda role: write S3, write logs.&#10;Least-privilege, no wildcard egress." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ECEFF1;strokeColor=#78909C;fontColor=#37474F;fontSize=11;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="430" y="300" width="300" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- Secrets (noted as not needed) -->
+        <mxCell id="secrets" value="Secrets Manager&#10;(not needed — public scrape, no creds)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAFAFA;strokeColor=#BDBDBD;fontColor=#9E9E9E;fontSize=11;verticalAlign=middle;spacing=6;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="430" y="430" width="300" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- No-agent note -->
+        <mxCell id="noagent" value="No-agent variant (cheaper, no injection surface): EventBridge Scheduler → Lambda (same VPC + NAT + Network Firewall) → S3. Delete the AgentCore Runtime + Gateway; the model adds nothing to a two-URL fetch." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFDE7;strokeColor=#F9A825;fontColor=#F57F17;fontSize=11;verticalAlign=middle;align=left;spacingLeft=12;" vertex="1" parent="1">
+          <mxGeometry x="60" y="700" width="1010" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Edges -->
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#5C6BC0;strokeWidth=2;endArrow=block;" edge="1" parent="1" source="scheduler" target="runtime">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e1l" value="invoke" style="edgeLabel;html=1;fontSize=10;fontColor=#283593;" vertex="1" connectable="0" parent="e1">
+          <mxGeometry x="-0.1" relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#7E57C2;strokeWidth=2;endArrow=block;" edge="1" parent="1" source="runtime" target="gateway">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2l" value="call tool" style="edgeLabel;html=1;fontSize=10;fontColor=#4527A0;" vertex="1" connectable="0" parent="e2">
+          <mxGeometry x="-0.1" relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#7E57C2;strokeWidth=2;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="gateway" target="lambda">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3l" value="dispatch to impl" style="edgeLabel;html=1;fontSize=10;fontColor=#4527A0;" vertex="1" connectable="0" parent="e3">
+          <mxGeometry x="-0.2" relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#1E88E5;strokeWidth=2;endArrow=block;" edge="1" parent="1" source="lambda" target="nat">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4l" value="GET (passed host check)" style="edgeLabel;html=1;fontSize=10;fontColor=#1565C0;" vertex="1" connectable="0" parent="e4">
+          <mxGeometry x="-0.1" relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#FB8C00;strokeWidth=2;endArrow=block;" edge="1" parent="1" source="nat" target="firewall">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#1E88E5;strokeWidth=2;endArrow=block;exitX=0.75;exitY=0;entryX=0.3;entryY=1;" edge="1" parent="1" source="firewall" target="allowed">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6l" value="permit" style="edgeLabel;html=1;fontSize=10;fontColor=#1565C0;" vertex="1" connectable="0" parent="e6">
+          <mxGeometry x="-0.1" relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#E53935;strokeWidth=1;dashed=1;endArrow=block;" edge="1" parent="1" source="firewall" target="blocked">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#43A047;strokeWidth=2;endArrow=block;exitX=1;exitY=0.3;entryX=0;entryY=0.5;" edge="1" parent="1" source="lambda" target="s3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8l" value="write enriched CSV" style="edgeLabel;html=1;fontSize=10;fontColor=#1B5E20;" vertex="1" connectable="0" parent="e8">
+          <mxGeometry x="-0.1" relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e9" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#78909C;strokeWidth=1;dashed=1;endArrow=block;exitX=1;exitY=0.7;entryX=0;entryY=0.5;" edge="1" parent="1" source="lambda" target="cw">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9l" value="logs" style="edgeLabel;html=1;fontSize=10;fontColor=#37474F;" vertex="1" connectable="0" parent="e9">
+          <mxGeometry x="-0.1" relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
