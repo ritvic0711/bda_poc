@@ -1,0 +1,128 @@
+<mxfile host="app.diagrams.net" agent="claude" version="24.0.0">
+  <diagram id="copilot-scraper" name="Copilot Scraper Architecture">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="826" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="title" value="Azure/Bedrock Model-Retirement Scraper — M365 Copilot custom agent (URL-locked, scheduled)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1;fontColor=#0F3B5F;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="1090" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend" value="Enforcement:   L1 = egress chokepoint, HOST allowlist (API Management backend policy)   •   L2 = tool-code EXACT-URL allowlist, host+path (tighter)   •   Prompt/agent instructions are NOT a security layer" style="text;html=1;strokeColor=#CCCCCC;fillColor=#FBFBFB;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontSize=11;fontColor=#555555;" vertex="1" parent="1">
+          <mxGeometry x="40" y="52" width="1090" height="24" as="geometry" />
+        </mxCell>
+
+        <!-- Power Automate -->
+        <mxCell id="pa" value="Power Automate&#10;&#10;Recurrence trigger&#10;(daily 06:00)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8EAF6;strokeColor=#5C6BC0;fontColor=#283593;fontSize=12;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="60" y="120" width="160" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Copilot agent -->
+        <mxCell id="agent" value="Copilot Studio agent&#10;&#10;Declarative custom agent.&#10;Web search / general knowledge&#10;TOGGLED OFF. One action only." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EDE7F6;strokeColor=#7E57C2;fontColor=#4527A0;fontSize=12;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="280" y="110" width="220" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- Entra app reg -->
+        <mxCell id="entra" value="Entra ID app registration&#10;&#10;Agent's service-principal identity.&#10;Client-credentials to call APIM." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ECEFF1;strokeColor=#78909C;fontColor=#37474F;fontSize=11;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="560" y="110" width="220" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Custom connector / action (L2) -->
+        <mxCell id="connector" value="Custom connector action (L2)&#10;&#10;Exact-URL allowlist in the action's&#10;own logic: normalized url must equal&#10;one of TWO frozen page strings&#10;(host AND path), else reject." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E0F2F1;strokeColor=#00897B;fontColor=#00695C;fontSize=11;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="280" y="250" width="260" height="110" as="geometry" />
+        </mxCell>
+
+        <!-- APIM (L1) -->
+        <mxCell id="apim" value="Azure API Management (L1)&#10;&#10;Egress chokepoint. Inbound policy:&#10;set-backend-service to the fixed&#10;Learn host; reject any other backend&#10;URL with 403. HOST-level allowlist." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E0;strokeColor=#FB8C00;fontColor=#E65100;fontSize=11;verticalAlign=middle;spacing=6;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="280" y="400" width="260" height="110" as="geometry" />
+        </mxCell>
+
+        <!-- Conditional access -->
+        <mxCell id="ca" value="Entra Conditional Access&#10;&#10;Named location: the agent identity&#10;may only call from your controlled&#10;network egress IPs." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ECEFF1;strokeColor=#78909C;fontColor=#37474F;fontSize=11;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="600" y="400" width="240" height="110" as="geometry" />
+        </mxCell>
+
+        <!-- Allowed host -->
+        <mxCell id="allowed" value="learn.microsoft.com : 443&#10;(Azure OpenAI + Foundry retirement pages)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1E88E5;fontColor=#1565C0;fontSize=11;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="280" y="560" width="260" height="56" as="geometry" />
+        </mxCell>
+
+        <!-- Blocked -->
+        <mxCell id="blocked" value="every other backend&#10;403 / blocked" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFEBEE;strokeColor=#E53935;fontColor=#B71C1C;fontSize=11;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="600" y="560" width="180" height="56" as="geometry" />
+        </mxCell>
+
+        <!-- SharePoint -->
+        <mxCell id="sp" value="SharePoint / OneDrive&#10;&#10;enriched_aggregated_report.csv&#10;(written via PA SharePoint connector)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#43A047;fontColor=#1B5E20;fontSize=12;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="60" y="250" width="180" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- App Insights -->
+        <mxCell id="ai" value="Application Insights&#10;&#10;Run telemetry + APIM 403 deny&#10;logs (audit trail)." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ECEFF1;strokeColor=#78909C;fontColor=#37474F;fontSize=11;verticalAlign=middle;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="60" y="400" width="180" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- No-agent note -->
+        <mxCell id="noagent" value="No-agent variant (cheaper, no injection surface): Power Automate recurrence → Azure Function (Python bs4, same exact-URL check) behind APIM → SharePoint. Delete the Copilot Studio agent + custom connector; the model adds nothing to a two-URL fetch." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFDE7;strokeColor=#F9A825;fontColor=#F57F17;fontSize=11;verticalAlign=middle;align=left;spacingLeft=12;" vertex="1" parent="1">
+          <mxGeometry x="60" y="650" width="1070" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Edges -->
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#5C6BC0;strokeWidth=2;endArrow=block;" edge="1" parent="1" source="pa" target="agent">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e1l" value="invoke" style="edgeLabel;html=1;fontSize=10;fontColor=#283593;" vertex="1" connectable="0" parent="e1">
+          <mxGeometry x="-0.1" relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#7E57C2;strokeWidth=2;endArrow=block;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="agent" target="connector">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2l" value="call its one action" style="edgeLabel;html=1;fontSize=10;fontColor=#4527A0;" vertex="1" connectable="0" parent="e2">
+          <mxGeometry x="-0.2" relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#00897B;strokeWidth=2;endArrow=block;" edge="1" parent="1" source="connector" target="apim">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3l" value="request (passed exact-URL check)" style="edgeLabel;html=1;fontSize=10;fontColor=#00695C;" vertex="1" connectable="0" parent="e3">
+          <mxGeometry x="-0.1" relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#1E88E5;strokeWidth=2;endArrow=block;" edge="1" parent="1" source="apim" target="allowed">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4l" value="permit (host match)" style="edgeLabel;html=1;fontSize=10;fontColor=#1565C0;" vertex="1" connectable="0" parent="e4">
+          <mxGeometry x="-0.1" relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#E53935;strokeWidth=1;dashed=1;endArrow=block;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="apim" target="blocked">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#78909C;strokeWidth=1;dashed=1;endArrow=block;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="entra" target="agent">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6l" value="identity" style="edgeLabel;html=1;fontSize=10;fontColor=#37474F;" vertex="1" connectable="0" parent="e6">
+          <mxGeometry x="-0.1" relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#78909C;strokeWidth=1;dashed=1;endArrow=block;" edge="1" parent="1" source="ca" target="apim">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7l" value="gates" style="edgeLabel;html=1;fontSize=10;fontColor=#37474F;" vertex="1" connectable="0" parent="e7">
+          <mxGeometry x="-0.1" relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#43A047;strokeWidth=2;endArrow=block;exitX=0;exitY=0.5;entryX=1;entryY=0.5;" edge="1" parent="1" source="connector" target="sp">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8l" value="write enriched CSV" style="edgeLabel;html=1;fontSize=10;fontColor=#1B5E20;" vertex="1" connectable="0" parent="e8">
+          <mxGeometry x="-0.1" relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
